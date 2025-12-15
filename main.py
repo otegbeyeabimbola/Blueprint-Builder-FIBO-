@@ -1,187 +1,216 @@
-### `main.py` with Replay Feature
+### 📄 main.py
 
 ```python
-import typer
 import json
 import hashlib
+import re
+import sys
 from datetime import datetime
-from typing import Optional, List
-from pydantic import BaseModel, Field, ValidationError, validator
+from typing import List, Optional, Union, Any
+from pathlib import Path
+from uuid import uuid4
+
+import typer
+from pydantic import BaseModel, Field, ValidationError, field_validator
 from rich.console import Console
 from rich.table import Table
-from rich.panel import Panel
-from rich.json import JSON
-from rich.text import Text
 
-# Initialize UI and CLI
+# Initialize App and Console
 app = typer.Typer()
 console = Console()
 
-# --- GLOBAL CONFIG (Simulating Dynamic Rules) ---
-# In a real app, this would come from a database or config file
-CURRENT_RULES = {
-    "allowed_currencies": ['USD', 'EUR', 'GBP', 'NGN'],
-    "min_face_value": 0
-}
+# --- 1. FIBO SCHEMA DEFINITIONS (Pydantic) ---
 
-# --- 1. DATA MODELS ---
-class BondAsset(BaseModel):
-    isin: str = Field(..., min_length=12, max_length=12)
-    currency: str = Field(..., min_length=3, max_length=3)
-    face_value: float = Field(..., gt=0)
-    maturity_date: datetime
-    issuer: str
+class FinancialAsset(BaseModel):
+    asset_id: str = Field(..., min_length=5, description="Unique identifier, uppercase required")
+    asset_type: str = Field(..., pattern="^(Stock|Bond|Derivative|FX)$")
+    issuer_name: str = Field(..., min_length=5)
+    price: float = Field(..., gt=0)
+    currency: str = Field(default="USD", min_length=3, max_length=3)
+    maturity_date: Optional[datetime] = None
+    required_docs: List[str] = Field(default_factory=list)
 
-    @validator('currency')
-    def validate_currency(cls, v):
-        # Validation checks the DYNAMIC global rules
-        allowed = CURRENT_RULES["allowed_currencies"]
-        if v not in allowed:
-            raise ValueError(f"Currency '{v}' is BANNED under current policy (Allowed: {allowed})")
+    @field_validator('asset_id')
+    def enforce_uppercase(cls, v):
+        if not v.isupper():
+            raise ValueError('Asset ID must be uppercase')
         return v
 
-# --- 2. ENGINE LOGIC ---
-class BlueprintEngine:
-    def __init__(self):
-        # Simulating a database of past validations
-        self.ledger = [] 
+# --- 2. DETERMINISTIC PATCHER ENGINE ---
 
-    def generate_hash(self, data: dict) -> str:
-        raw_string = json.dumps(data, sort_keys=True, default=str)
-        return hashlib.sha256(raw_string.encode()).hexdigest()
+class PatchEngine:
+    """
+    Analyzes raw dictionary data and attempts to fix common AI hallucinations
+    or formatting errors deterministically.
+    """
+    
+    @staticmethod
+    def fix_dates(data: dict) -> dict:
+        """Fixes slash-formatted dates to ISO format."""
+        for key, val in data.items():
+            if "date" in key or key == "maturity":
+                if isinstance(val, str) and "/" in val:
+                    try:
+                        # Convert YYYY/MM/DD to ISO
+                        dt = datetime.strptime(val, "%Y/%m/%d")
+                        data[key] = dt.isoformat()
+                        console.print(f"[yellow]🔧 Patched date format for field '{key}'[/yellow]")
+                    except ValueError:
+                        pass
+        return data
 
-    def deterministic_patcher(self, broken_data: dict) -> dict:
-        patched = broken_data.copy()
-        if "currency" in patched:
-            patched["currency"] = patched["currency"].strip().upper()
-        if "face_value" in patched and isinstance(patched["face_value"], str):
-            val = patched["face_value"].upper()
-            if "M" in val:
-                patched["face_value"] = float(val.replace("M", "")) * 1_000_000
-            elif "K" in val:
-                patched["face_value"] = float(val.replace("K", "")) * 1_000
-        if "maturity_date" in patched:
-            if "/" in patched["maturity_date"]:
-                patched["maturity_date"] = patched["maturity_date"].replace("/", "-")
-        return patched
+    @staticmethod
+    def fix_numbers(data: dict) -> dict:
+        """Converts human-readable number strings (e.g., '1M') to floats."""
+        for key, val in data.items():
+            if isinstance(val, str):
+                # Handle 'k' (thousands) and 'M' (millions)
+                if re.match(r"^\d+(\.\d+)?[kKmM]$", val):
+                    multiplier = 1000 if val.lower().endswith('k') else 1000000
+                    num_part = float(val[:-1])
+                    data[key] = num_part * multiplier
+                    console.print(f"[yellow]🔧 Patched number string '{val}' to {data[key]} for field '{key}'[/yellow]")
+        return data
 
-    def process_asset(self, raw_input: dict, is_replay=False):
-        """
-        Runs the pipeline. 
-        is_replay: If True, marks the log as a re-verification.
-        """
-        entry = {
-            "timestamp": datetime.now().isoformat(),
-            "type": "REPLAY_VALIDATION" if is_replay else "NEW_VALIDATION",
-            "status": "PROCESSING",
-            "original": raw_input.copy(),
-            "violations": [],
-            "fixes_applied": []
-        }
+    @staticmethod
+    def fix_uppercase(data: dict) -> dict:
+        """Enforces uppercase for known ID fields."""
+        if 'asset_id' in data and isinstance(data['asset_id'], str):
+            if not data['asset_id'].isupper():
+                data['asset_id'] = data['asset_id'].upper()
+                console.print(f"[yellow]🔧 Patched casing for asset_id[/yellow]")
+        return data
 
-        patched_data = self.deterministic_patcher(raw_input)
-        
-        if patched_data != raw_input:
-            entry["fixes_applied"].append("Deterministic Patching")
+    @classmethod
+    def run(cls, data: dict) -> dict:
+        data = cls.fix_dates(data)
+        data = cls.fix_numbers(data)
+        data = cls.fix_uppercase(data)
+        return data
 
+# --- 3. CRYPTOGRAPHIC UTILS ---
+
+def generate_trace_id(data: dict) -> str:
+    """Generates a SHA-256 hash of the canonicalized JSON string."""
+    canonical_json = json.dumps(data, sort_keys=True)
+    return hashlib.sha256(canonical_json.encode('utf-8')).hexdigest()
+
+def append_to_ledger(record: dict, filename: str = "ledger.json"):
+    """Appends the validated record to an immutable ledger file."""
+    ledger_path = Path(filename)
+    if not ledger_path.exists():
+        with open(ledger_path, 'w') as f:
+            json.dump([], f)
+    
+    with open(ledger_path, 'r+') as f:
         try:
-            valid_asset = BondAsset(**patched_data)
-            trace_id = self.generate_hash(valid_asset.model_dump())
-            entry["status"] = "SUCCESS"
-            entry["final_asset"] = valid_asset.model_dump()
-            entry["trace_id"] = trace_id
-            
-        except ValidationError as e:
-            entry["status"] = "FAILED"
-            entry["violations"] = [err['msg'] for err in e.errors()]
+            current_data = json.load(f)
+        except json.JSONDecodeError:
+            current_data = []
         
-        self.ledger.append(entry)
-        return entry
+        current_data.append(record)
+        f.seek(0)
+        json.dump(current_data, f, indent=2)
 
-# --- 3. CLI COMMANDS ---
-engine = BlueprintEngine()
+# --- 4. CLI COMMANDS ---
 
 @app.command()
-def demo_replay():
+def build(
+    input_file: Path = typer.Option(..., "--input", "-i", help="Path to input JSON file"),
+    fix: bool = typer.Option(False, "--fix", "-f", help="Attempt to auto-patch errors"),
+    output: Optional[Path] = typer.Option(None, "--output", "-o", help="Path to save validated output")
+):
     """
-    Simulates a 'Regulatory Change' and replays validation on old data.
+    Validates, Patches, and Certifies financial assets from raw JSON.
     """
-    # 1. INITIAL STATE: Successful validation
-    console.rule("[bold blue]1. January 2025: Initial Validation[/bold blue]")
+    console.print(f"[bold blue]🏗️  Blueprint Builder v1.0[/bold blue]")
     
-    # Old data that was valid in Jan 2025
-    historical_input = {
-        "isin": "GB1234567890",
-        "currency": "GBP", 
-        "face_value": "1M",
-        "maturity_date": "2030-01-01",
-        "issuer": "Bank of London"
+    # 1. Load Data
+    try:
+        with open(input_file, 'r') as f:
+            raw_data = json.load(f)
+    except Exception as e:
+        console.print(f"[bold red]❌ Error loading file:[/bold red] {e}")
+        raise typer.Exit(code=1)
+
+    # 2. Validation Loop
+    valid_asset = None
+    try:
+        # First attempt
+        valid_asset = FinancialAsset(**raw_data)
+        console.print("[green]✅ Data is valid on first pass.[/green]")
+
+    except ValidationError as e:
+        console.print("[bold red]🚫 Validation Failed:[/bold red]")
+        for err in e.errors():
+            console.print(f" - {err['loc'][0]}: {err['msg']}")
+        
+        if not fix:
+            console.print("\n[dim]Run with --fix to attempt auto-correction.[/dim]")
+            raise typer.Exit(code=1)
+        
+        # 3. Patching
+        console.print("\n[bold cyan]🔧 Attempting Deterministic Patching...[/bold cyan]")
+        patched_data = PatchEngine.run(raw_data.copy())
+        
+        try:
+            valid_asset = FinancialAsset(**patched_data)
+            console.print("[bold green]✅ Patch Successful! Asset is now compliant.[/bold green]")
+        except ValidationError as final_e:
+            console.print("[bold red]❌ Auto-fix failed. Manual intervention required.[/bold red]")
+            raise typer.Exit(code=1)
+
+    # 4. Certification & Hashing
+    final_dict = valid_asset.model_dump(mode='json')
+    trace_id = generate_trace_id(final_dict)
+    
+    certified_record = {
+        "trace_id": trace_id,
+        "timestamp": datetime.utcnow().isoformat() + "Z",
+        "status": "VALIDATED",
+        "method": "AUTO_PATCHED" if fix else "DIRECT",
+        "data": final_dict
     }
-    
-    console.print(f"Incoming Asset: [bold]GBP Bond[/bold]")
-    result_v1 = engine.process_asset(historical_input)
-    console.print(f"Status: [green]{result_v1['status']}[/green] (GBP is allowed)")
-    
-    # 2. THE CHANGE: Simulate a regulatory update
-    console.print("\n[dim]... 6 months pass ...[/dim]\n")
-    console.rule("[bold red]2. July 2025: REGULATORY UPDATE[/bold red]")
-    
-    console.print("[bold red]ALERT: New Regulation Passed.[/bold red] 'GBP' is no longer an approved settlement currency for this desk.")
-    
-    # UPDATE THE RULES GLOBALLY
-    CURRENT_RULES["allowed_currencies"] = ['USD', 'EUR', 'NGN'] # Removed GBP
-    console.print(f"Active Policy: {CURRENT_RULES['allowed_currencies']}")
 
-    # 3. REPLAY: Re-validate the OLD data against NEW rules
-    console.print("\n[bold yellow]3. Running Replay Validation...[/bold yellow]")
-    
-    # We fetch the original raw data from the first ledger entry
-    original_raw_data = engine.ledger[0]["original"]
-    
-    with console.status("Re-verifying Ledger...", spinner="clock"):
-        import time; time.sleep(1)
-        result_replay = engine.process_asset(original_raw_data, is_replay=True)
+    # 5. Output
+    console.print("\n[bold]📜 Certified Asset Record:[/bold]")
+    console.print_json(data=certified_record)
 
-    # 4. SHOW RESULTS
-    if result_replay["status"] == "FAILED":
-        console.print(Panel(
-            f"[bold red]COMPLIANCE VIOLATION DETECTED[/bold red]\n\n"
-            f"Asset ID: {result_v1['trace_id']} (Previously Valid)\n"
-            f"Current Status: [red]FAILED[/red]\n"
-            f"Reason: {result_replay['violations'][0]}",
-            title="🛑 Replay Audit Result"
-        ))
-    else:
-        console.print("[green]Asset remains compliant.[/green]")
+    # 6. Save to Ledger
+    append_to_ledger(certified_record)
+    console.print(f"[dim]💾 Recorded to ledger.json[/dim]")
+
+    if output:
+        with open(output, 'w') as f:
+            json.dump(certified_record, f, indent=2)
+        console.print(f"[blue]📁 Saved certified output to {output}[/blue]")
+
+@app.command()
+def history():
+    """View the validation ledger."""
+    if not Path("ledger.json").exists():
+        console.print("[yellow]No history found.[/yellow]")
+        return
+
+    with open("ledger.json", 'r') as f:
+        data = json.load(f)
+
+    table = Table(title="Validation Ledger")
+    table.add_column("Trace ID", style="cyan", no_wrap=True)
+    table.add_column("Timestamp", style="magenta")
+    table.add_column("Type", style="green")
+    table.add_column("Price", style="white")
+
+    for item in data[-5:]: # Show last 5
+        asset = item['data']
+        table.add_row(
+            item['trace_id'][:8] + "...", 
+            item['timestamp'][:19], 
+            asset['asset_type'], 
+            f"${asset['price']:,.2f}"
+        )
+
+    console.print(table)
 
 if __name__ == "__main__":
     app()
-```
-
-### How to use this for the Hackathon Demo
-
-# 1.  Run the command:
-
-    ```bash
-    python main.py
-    ```
-
-# When you run this, the terminal will simulate the full product experience:
-
-# Red Text: Shows the "Broken" JSON (lowercase currency, "5M" string, slash dates).
-
-# Spinner: A loading animation saying "Running Deterministic Patcher...".
-
-# Green Badge: A visual panel showing the SHA-256 Trace ID.
-
-# Clean JSON: The fixed data (Uppercase currency, 5000000.0 float, ISO date).
-
-# Audit Table: A table showing exactly what fixes were applied.
-
-# 2.  **The Narrative it creates:**
-
-#   * **Phase 1:** You show a GBP Bond being validated successfully because GBP is allowed.
-#   * **Phase 2:** "The Regulations Change." You programmatically remove GBP from the allowed list.
-#   * **Phase 3 (The Replay):** You hit the "Replay" button (run the code). The system pulls the *exact same data* from history, but this time it fails validation with a clear error: *"Currency 'GBP' is BANNED under current policy"*.
-
-      
