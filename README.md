@@ -1,112 +1,127 @@
-# 🏗️ Blueprint Builder: The JSON-Native Compliance Engine
+# 🏗️ Blueprint Builder
 
-[![FIBO Hackathon](https://img.shields.io/badge/Submission-FIBO_Hackathon_2025-blueviolet?style=for-the-badge)](https://bria.ai)
-[![Category](https://img.shields.io/badge/Category-Best_Agentic_Workflow-FFD700?style=for-the-badge)]()
-[![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)]()
+> **Where AI Meets Compliance, Automatically.**
 
-> **"Traditional AI generation breaks brand consistency. Blueprint Builder enforces it."**
+[![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
+[![License: Proprietary](https://img.shields.io/badge/License-Proprietary-red.svg)](#-copyright--license)
+[![Hackathon](https://img.shields.io/badge/Bria_FIBO-Hackathon_2025-orange)](https://github.com/)
 
-**Blueprint Builder** is an intelligent, automated pipeline designed for the **Bria FIBO** model. It moves beyond simple text prompting by using a "Semantic Bridge" of custom ComfyUI nodes to validate, enforce, and self-correct visual parameters before a single pixel is generated.
-
-Built by **Mohammed B. Kemal** & **Abimbola A. Otegbeye**.
+**Blueprint Builder** is a JSON-Native Compliance Engine that transforms messy AI outputs into validated, auditable financial assets. It combines rigorous schema validation with deterministic patching to ensure your data isn't just generated—it's certified.
 
 ---
 
-## 🎥 Project Demo
-[![Watch the Demo Video](https://img.youtube.com/vi/YOUR_VIDEO_ID_HERE/maxresdefault.jpg)](YOUR_VIDEO_LINK_HERE)
-*(Click to watch our <3 minute submission video)*
+## 🚨 The Problem
+
+In the age of AI, Large Language Models (LLMs) can generate financial data in seconds. But **AI doesn't understand compliance.**
+
+* One missing field.
+* One wrong format.
+* One violated business rule.
+
+Any of these can cause an entire dataset to be rejected. Manual fixes take hours or days. Blueprint Builder solves this by automating the "Last Mile" of AI content generation.
+
+## ✨ Key Features
+
+### 🛡️ Bulletproof Validation
+Powered by **Pydantic**, we enforce strict schema validation to catch structural errors immediately.
+
+### 🔧 Deterministic Patching & Auto-Fix
+We don't just flag errors; we fix them. Our engine uses deterministic algorithms to auto-correct violations (e.g., formatting dates, inferring missing required fields based on context).
+
+### 🔐 Cryptographic Integrity
+Every validated asset receives a **SHA-256 trace ID**. Think of it as a fingerprint; if a single byte changes, the hash breaks, ensuring total data integrity.
+
+### 📜 Persistent Ledger & Replay
+* **Audit Trails:** Every validation attempt is logged with timestamps, violations, and corrections.
+* **Time Travel:** Use the **Undo/Redo** buttons to step through data states.
+* **Replay:** Re-verify old assets against current rules to ensure ongoing compliance.
 
 ---
 
-## 🚀 The Problem & Solution
+## 🚀 How It Works
 
-### 🔴 The Problem: Ambiguity in Production
-In professional workflows, a text prompt like *"make it warmer"* is dangerous. It might change the lighting, the skin tone, or the white balance unpredictably. Studios waste 40% of their time on visual QA because they lack deterministic control.
-
-### 🟢 The Blueprint Solution: Agentic Compliance
-We treat image generation as a **schema validation problem**.
-1.  **Agents, not Prompts:** An intelligent agent converts a brief into a rigid JSON structure.
-2.  **Pre-Flight Checks:** Our custom **Compliance Checker Node** validates the JSON against brand rules (e.g., "Must use Hex Code `#FF5733`" or "Must be `Sony A7R` sensor").
-3.  **Self-Correction:** If a rule is violated, the agent **auto-corrects the JSON** instantly, ensuring 100% compliant outputs at scale.
-
----
-
-## ⚙️ Technical Architecture: "The Semantic Bridge"
-
-We developed a custom suite of ComfyUI nodes that act as the bridge between raw JSON logic and the FIBO generation model.
-
-### 1. `JSON Input Agent Node` (The Translator)
-Bypasses standard text encoders. It parses raw JSON into discrete, structured data types (`Camera_Params`, `Lighting_Params`) that feed directly into FIBO's disentangled layers.
-
-### 2. `Compliance Checker Node` (The Enforcer)
-* **Input:** Proposed JSON Blueprint + Brand Style Schema (Pydantic).
-* **Logic:** Validates every parameter. If `aspect_ratio` is `1:1` but the brand requires `16:9`, it flags the error and outputs a **patched, compliant JSON**.
-* **Result:** Zero "hallucinated" styles.
-
-### 3. `JSON Output Reporter Node` (The Archivist)
-Embeds the final, validated JSON blueprint into the generated image's EXIF/Metadata. This creates **Self-Documenting Assets**—drag the image back into ComfyUI to retrieve the exact blueprint used to create it.
-
----
-
-## 🛠️ Installation & Setup
-
-### Prerequisites
-* Python 3.10+
-* [ComfyUI](https://github.com/comfyanonymous/ComfyUI) installed locally.
-* **Bria FIBO Model** downloaded from [Hugging Face](https://huggingface.co/briaai).
-
-### Step 1: Clone the Repo
-```bash
-git clone [https://github.com/otegbeyeabimbola/Blueprint-Builder-FIBO-Json-Compliance-Engine](https://github.com/otegbeyeabimbola/Blueprint-Builder-FIBO-Json-Compliance-Engine)
-cd blueprint-builder-fibo
+```mermaid
+graph TD
+    A[Raw AI Output] -->|Input| B{Schema Validation}
+    B -->|Error Found| C[Deterministic Patcher]
+    C -->|Auto-Fix| B
+    B -->|Valid| D[FIBO Semantic Rules]
+    D -->|Verified| E[SHA-256 Hashing]
+    E -->|Log| F[(Immutable Ledger)]
+    F -->|Output| G[Certified Asset]
 ````
 
-### Step 2: Install Custom Nodes
+## 🛠️ Installation
 
-Copy the `comfyui_custom_nodes` folder content into your ComfyUI installation:
+1.  **Clone the repository**
 
-```bash
-cp -r src/custom_nodes/* path/to/ComfyUI/custom_nodes/
+    ```bash
+    git clone [https://github.com/your-username/blueprint-builder.git](https://github.com/your-username/blueprint-builder.git)
+    cd blueprint-builder
+    ```
+
+2.  **Install dependencies**
+
+    ```bash
+    pip install -r requirements.txt
+    ```
+
+3.  **Run the application**
+
+    ```bash
+    python main.py
+    ```
+
+## 💻 Usage Example
+
+Blueprint Builder is designed to integrate anywhere via CLI.
+
+**Input (Broken AI Output):**
+
+```json
+{
+  "asset_type": "Bond",
+  "maturity": "2025/12/01",  // Wrong format
+  "face_value": "1M"         // String instead of Float
+}
 ```
 
-### Step 3: Install Dependencies
+**Command:**
 
 ```bash
-pip install -r requirements.txt
+blueprint build --input bond_data.json --fix
 ```
 
-### Step 4: Run the Agent
+**Output (Validated & Patched):**
 
-1.  Launch ComfyUI.
-2.  Load the workflow file: `workflows/blueprint_builder_demo.json`.
-3.  Run `python src/agent_core.py` to generate your initial JSON blueprints.
-
------
-
-## 🏆 Award Category Alignment
-
-**Submitted for: Best JSON-Native or Agentic Workflow**
-
-  * **JSON-Native:** We don't just "support" JSON; we require it. Our entire pipeline relies on the structured nature of FIBO to perform diffs, merges, and validations that are impossible with text.
-  * **Agentic:** The system reasons about the output. It knows *why* an image is wrong (e.g., "Lighting is Ambient, should be Studio") and fixes it autonomously.
-  * **Production Ready:** Features like **Hex-Code Enforcement** and **Metadata Embedding** are specifically designed for enterprise adoption.
+```json
+{
+  "trace_id": "a1b2c3d4...",
+  "status": "VALIDATED",
+  "data": {
+    "asset_type": "Bond",
+    "maturity": "2025-12-01T00:00:00Z",
+    "face_value": 1000000.00
+  },
+  "log": "Fixed date format; Converted currency string to float."
+}
+```
 
 -----
 
 ## 👥 Contributors
 
+This project was built by:
+
   * **Mohammed B. Kemal** - [Email](mailto:mickymicky718@gmail.com)
   * **Abimbola A. Otegbeye** - [Email](mailto:otegbeyeabimbola2017@gmail.com)
 
+*Built with ❤️ for the **Bria FIBO Hackathon 2025**.*
+
 -----
-
-*Built with ❤️ for the Bria FIBO Hackathon 2025.*
-
-```
-```
 
 ## ⚖️ Copyright & License
 
 Copyright © 2025 **Mohammed B. Kemal** and **Abimbola A. Otegbeye**. All Rights Reserved.
 
-This project is submitted for the **FIBO Hackathon 2025**.
+This project is submitted for the **FIBO Hackathon 2025**. Unauthorized copying of this file, via any medium, is strictly prohibited unless authorized by the copyright holders.
