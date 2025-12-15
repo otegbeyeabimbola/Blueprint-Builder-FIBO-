@@ -1,0 +1,27 @@
+### `requirements.txt`
+
+```text
+# Core Validation & Schema
+pydantic>=2.5.0        # The engine for "bulletproof schema validation"
+
+# Command Line Interface (CLI)
+typer[all]>=0.9.0      # Creates the simple, robust CLI commands
+
+# User Interface & Visuals
+rich>=13.7.0           # Powers the "Enhanced Interface," "Ledger," tables, and logs
+
+# Data Processing Helpers
+python-dateutil>=2.8.2 # Essential for parsing messy AI date formats (e.g., "2025/12/01")
+
+# Testing (Crucial for Hackathons)
+pytest>=7.4.0          # To verify your patcher logic works
+```
+
+-----
+
+### Why these packages?
+
+  * **`pydantic`**: You mentioned "bulletproof schema validation." Pydantic V2 is the industry standard for this. It allows you to define the **Bond** or **Financial Asset** models strict types.
+  * **`typer`**: This is the modern standard for Python CLIs. It lets you build the `blueprint build --input ...` commands effortlessly.
+  * **`rich`**: This is the secret weapon for your "Enhanced Interface." It allows you to render the **Audit Ledger** as a beautiful table in the terminal, display the **Cryptographic Badge** icons, and show color-coded **diffs** (changes) between the broken AI output and the fixed version.
+  * **`python-dateutil`**: AI often hallucinates date formats (e.g., "Dec 1st 25" vs "2025-12-01"). This library helps your "Deterministic Patcher" normalize them automatically.
