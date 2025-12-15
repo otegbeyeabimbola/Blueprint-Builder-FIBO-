@@ -1,4 +1,4 @@
-### `main.py`
+### `main.py` with Replay Feature
 
 ```python
 import typer
@@ -17,92 +17,76 @@ from rich.text import Text
 app = typer.Typer()
 console = Console()
 
-# --- 1. DATA MODELS (The FIBO Compliance Layer) ---
+# --- GLOBAL CONFIG (Simulating Dynamic Rules) ---
+# In a real app, this would come from a database or config file
+CURRENT_RULES = {
+    "allowed_currencies": ['USD', 'EUR', 'GBP', 'NGN'],
+    "min_face_value": 0
+}
+
+# --- 1. DATA MODELS ---
 class BondAsset(BaseModel):
-    """
-    Defines the strict schema for a Bond Asset.
-    This simulates FIBO compliance rules.
-    """
-    isin: str = Field(..., min_length=12, max_length=12, description="International Securities Identification Number")
+    isin: str = Field(..., min_length=12, max_length=12)
     currency: str = Field(..., min_length=3, max_length=3)
-    face_value: float = Field(..., gt=0, description="Must be a positive number")
+    face_value: float = Field(..., gt=0)
     maturity_date: datetime
     issuer: str
 
-    # Example of a semantic rule
     @validator('currency')
     def validate_currency(cls, v):
-        allowed = ['USD', 'EUR', 'GBP', 'NGN']
+        # Validation checks the DYNAMIC global rules
+        allowed = CURRENT_RULES["allowed_currencies"]
         if v not in allowed:
-            raise ValueError(f"Currency {v} is not supported by current policy.")
+            raise ValueError(f"Currency '{v}' is BANNED under current policy (Allowed: {allowed})")
         return v
 
-# --- 2. CORE LOGIC (The Engine) ---
-
+# --- 2. ENGINE LOGIC ---
 class BlueprintEngine:
     def __init__(self):
-        self.ledger = [] # The Persistent Ledger
+        # Simulating a database of past validations
+        self.ledger = [] 
 
     def generate_hash(self, data: dict) -> str:
-        """Generates a SHA-256 Trace ID for data integrity."""
         raw_string = json.dumps(data, sort_keys=True, default=str)
         return hashlib.sha256(raw_string.encode()).hexdigest()
 
     def deterministic_patcher(self, broken_data: dict) -> dict:
-        """
-        The 'Auto-Fix' Logic.
-        Tries to repair common AI hallucinations before validation.
-        """
         patched = broken_data.copy()
-        
-        # Patch 1: Fix currency string formatting (e.g., "USD " -> "USD")
         if "currency" in patched:
             patched["currency"] = patched["currency"].strip().upper()
-
-        # Patch 2: Fix human-readable numbers (e.g., "1M" -> 1000000)
         if "face_value" in patched and isinstance(patched["face_value"], str):
             val = patched["face_value"].upper()
             if "M" in val:
                 patched["face_value"] = float(val.replace("M", "")) * 1_000_000
             elif "K" in val:
                 patched["face_value"] = float(val.replace("K", "")) * 1_000
-
-        # Patch 3: Fix Date formats (AI often uses slashes)
         if "maturity_date" in patched:
-            try:
-                # Attempt to normalize YYYY/MM/DD to ISO format
-                if "/" in patched["maturity_date"]:
-                    patched["maturity_date"] = patched["maturity_date"].replace("/", "-")
-            except Exception:
-                pass # Let Pydantic catch critical errors
-        
+            if "/" in patched["maturity_date"]:
+                patched["maturity_date"] = patched["maturity_date"].replace("/", "-")
         return patched
 
-    def process_asset(self, raw_input: dict):
-        """Runs the Pipeline: Patch -> Validate -> Hash -> Log"""
-        
-        # 1. Log Attempt
+    def process_asset(self, raw_input: dict, is_replay=False):
+        """
+        Runs the pipeline. 
+        is_replay: If True, marks the log as a re-verification.
+        """
         entry = {
             "timestamp": datetime.now().isoformat(),
+            "type": "REPLAY_VALIDATION" if is_replay else "NEW_VALIDATION",
             "status": "PROCESSING",
             "original": raw_input.copy(),
             "violations": [],
             "fixes_applied": []
         }
 
-        # 2. Apply Deterministic Patching
         patched_data = self.deterministic_patcher(raw_input)
         
         if patched_data != raw_input:
-            entry["fixes_applied"].append("Deterministic Patching applied (Date/Number normalization)")
+            entry["fixes_applied"].append("Deterministic Patching")
 
-        # 3. Pydantic Validation
         try:
             valid_asset = BondAsset(**patched_data)
-            
-            # 4. Generate Badge (Hash)
             trace_id = self.generate_hash(valid_asset.model_dump())
-            
             entry["status"] = "SUCCESS"
             entry["final_asset"] = valid_asset.model_dump()
             entry["trace_id"] = trace_id
@@ -114,89 +98,90 @@ class BlueprintEngine:
         self.ledger.append(entry)
         return entry
 
-# --- 3. CLI COMMANDS & UI ---
+# --- 3. CLI COMMANDS ---
+engine = BlueprintEngine()
 
 @app.command()
-def demo():
+def demo_replay():
     """
-    Runs a demo of Blueprint Builder with broken AI data.
+    Simulates a 'Regulatory Change' and replays validation on old data.
     """
-    engine = BlueprintEngine()
-
-    # MOCK DATA: Typical messy output from an AI
-    broken_ai_output = {
-        "isin": "US1234567890", # Valid length
-        "currency": "usd ",     # Messy whitespace, lowercase
-        "face_value": "5M",     # AI used '5M' string instead of number
-        "maturity_date": "2030/01/01", # Wrong date format
-        "issuer": "Global Corp"
-    }
-
-    console.rule("[bold blue]Blueprint Builder: AI Compliance Engine[/bold blue]")
-    console.print("\n[bold red]1. Incoming AI Data (Broken):[/bold red]")
-    console.print(JSON.from_data(broken_ai_output))
-
-    with console.status("[bold green]Running Deterministic Patcher & Validation...[/bold green]", spinner="dots"):
-        result = engine.process_asset(broken_ai_output)
-        import time; time.sleep(1.5) # Fake processing time for effect
-
-    console.print("\n[bold green]2. Validated & Patched Output:[/bold green]")
+    # 1. INITIAL STATE: Successful validation
+    console.rule("[bold blue]1. January 2025: Initial Validation[/bold blue]")
     
-    if result["status"] == "SUCCESS":
-        # Display the "Cryptographic Badge"
-        panel_content = Text(f"SHA-256 TRACE ID:\n{result['trace_id']}", justify="center", style="bold white on green")
-        console.print(Panel(panel_content, title="🛡️ Data Integrity Verified", expand=False))
-        
-        # Display Final JSON
-        # Convert datetime objects to string for JSON display
-        display_json = result["final_asset"].copy()
-        display_json['maturity_date'] = display_json['maturity_date'].isoformat()
-        console.print(JSON.from_data(display_json))
+    # Old data that was valid in Jan 2025
+    historical_input = {
+        "isin": "GB1234567890",
+        "currency": "GBP", 
+        "face_value": "1M",
+        "maturity_date": "2030-01-01",
+        "issuer": "Bank of London"
+    }
+    
+    console.print(f"Incoming Asset: [bold]GBP Bond[/bold]")
+    result_v1 = engine.process_asset(historical_input)
+    console.print(f"Status: [green]{result_v1['status']}[/green] (GBP is allowed)")
+    
+    # 2. THE CHANGE: Simulate a regulatory update
+    console.print("\n[dim]... 6 months pass ...[/dim]\n")
+    console.rule("[bold red]2. July 2025: REGULATORY UPDATE[/bold red]")
+    
+    console.print("[bold red]ALERT: New Regulation Passed.[/bold red] 'GBP' is no longer an approved settlement currency for this desk.")
+    
+    # UPDATE THE RULES GLOBALLY
+    CURRENT_RULES["allowed_currencies"] = ['USD', 'EUR', 'NGN'] # Removed GBP
+    console.print(f"Active Policy: {CURRENT_RULES['allowed_currencies']}")
 
-        # Show the Audit Ledger (History)
-        console.print("\n[bold yellow]3. Audit Ledger (History):[/bold yellow]")
-        table = Table(show_header=True, header_style="bold magenta")
-        table.add_column("Timestamp")
-        table.add_column("Status")
-        table.add_column("Fixes / Violations")
+    # 3. REPLAY: Re-validate the OLD data against NEW rules
+    console.print("\n[bold yellow]3. Running Replay Validation...[/bold yellow]")
+    
+    # We fetch the original raw data from the first ledger entry
+    original_raw_data = engine.ledger[0]["original"]
+    
+    with console.status("Re-verifying Ledger...", spinner="clock"):
+        import time; time.sleep(1)
+        result_replay = engine.process_asset(original_raw_data, is_replay=True)
 
-        fixes = ", ".join(result["fixes_applied"]) if result["fixes_applied"] else "None"
-        violations = ", ".join(result["violations"]) if result["violations"] else "None"
-        
-        # Add row
-        table.add_row(
-            result["timestamp"].split("T")[1][:8], 
-            f"[green]{result['status']}[/green]", 
-            f"Fixes: {fixes}\nViolations: {violations}"
-        )
-        console.print(table)
-
+    # 4. SHOW RESULTS
+    if result_replay["status"] == "FAILED":
+        console.print(Panel(
+            f"[bold red]COMPLIANCE VIOLATION DETECTED[/bold red]\n\n"
+            f"Asset ID: {result_v1['trace_id']} (Previously Valid)\n"
+            f"Current Status: [red]FAILED[/red]\n"
+            f"Reason: {result_replay['violations'][0]}",
+            title="🛑 Replay Audit Result"
+        ))
     else:
-        console.print(f"[bold red]Validation Failed:[/bold red] {result['violations']}")
+        console.print("[green]Asset remains compliant.[/green]")
 
 if __name__ == "__main__":
     app()
 ```
 
-### How to Run This
+### How to use this for the Hackathon Demo
 
-1.  Ensure you have installed the requirements:
-    ```bash
-    pip install -r requirements.txt
-    ```
-2.  Run the demo command:
+# 1.  Run the command:
+
     ```bash
     python main.py
     ```
 
-### What You Will See (The Outcome)
+# When you run this, the terminal will simulate the full product experience:
 
-When you run this, the terminal will simulate the full product experience:
+# Red Text: Shows the "Broken" JSON (lowercase currency, "5M" string, slash dates).
 
-1.  **Red Text:** Shows the "Broken" JSON (lowercase currency, "5M" string, slash dates).
-2.  **Spinner:** A loading animation saying "Running Deterministic Patcher...".
-3.  **Green Badge:** A visual panel showing the **SHA-256 Trace ID**.
-4.  **Clean JSON:** The fixed data (Uppercase currency, `5000000.0` float, ISO date).
-5.  **Audit Table:** A table showing exactly what fixes were applied.
+# Spinner: A loading animation saying "Running Deterministic Patcher...".
 
-**Would you like me to explain how to add a "Replay Button" feature to this code specifically?**
+# Green Badge: A visual panel showing the SHA-256 Trace ID.
+
+# Clean JSON: The fixed data (Uppercase currency, 5000000.0 float, ISO date).
+
+# Audit Table: A table showing exactly what fixes were applied.
+
+# 2.  **The Narrative it creates:**
+
+#   * **Phase 1:** You show a GBP Bond being validated successfully because GBP is allowed.
+#   * **Phase 2:** "The Regulations Change." You programmatically remove GBP from the allowed list.
+#   * **Phase 3 (The Replay):** You hit the "Replay" button (run the code). The system pulls the *exact same data* from history, but this time it fails validation with a clear error: *"Currency 'GBP' is BANNED under current policy"*.
+
+      
