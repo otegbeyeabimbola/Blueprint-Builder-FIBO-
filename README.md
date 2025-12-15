@@ -1,40 +1,47 @@
-# 🏗️ Blueprint Builder
+# 🏗️ Blueprint Compliance Engine
 
-> **Where AI Meets Compliance, Automatically.**
+> **Where FIBO Standards Meet Frontend Velocity.**
 
-[![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
+[![React 18](https://img.shields.io/badge/React-18.0+-61DAFB.svg)](https://reactjs.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-3178C6.svg)](https://www.typescriptlang.org/)
 [![License: Proprietary](https://img.shields.io/badge/License-Proprietary-red.svg)](#-copyright--license)
 [![Hackathon](https://img.shields.io/badge/Bria_FIBO-Hackathon_2025-orange)](https://github.com/)
 
-**Blueprint Builder** is a JSON-Native Compliance Engine that transforms messy AI outputs into validated, auditable financial assets. It combines rigorous schema validation with deterministic patching to ensure your data isn't just generated—it's certified.
+**Blueprint Compliance Engine** is a robust validation suite that visualizes and enforces financial data integrity. It provides a seamless interface for validating raw asset data against strict FIBO (Financial Industry Business Ontology) schemas and semantic business rules, ensuring every asset is audit-ready before it hits the ledger.
 
 ---
 
 ## 🚨 The Problem
 
-In the age of AI, Large Language Models (LLMs) can generate financial data in seconds. But **AI doesn't understand compliance.**
+Managing financial asset data is error-prone. JSON syntax errors, missing fields, or subtle business rule violations (like a Bond priced too low) often go unnoticed until they break downstream systems.
 
-* One missing field.
-* One wrong format.
-* One violated business rule.
+* **Schema failures:** Incorrect data types or formatting.
+* **Semantic gaps:** Logical inconsistencies that pass code validation but fail business compliance.
+* **Opaque history:** No record of *who* validated *what* and *when*.
 
-Any of these can cause an entire dataset to be rejected. Manual fixes take hours or days. Blueprint Builder solves this by automating the "Last Mile" of AI content generation.
+Blueprint Compliance Engine solves this by providing immediate visual feedback, auto-conversion tools, and an immutable validation history.
 
 ## ✨ Key Features
 
-### 🛡️ Bulletproof Validation
-Powered by **Pydantic**, we enforce strict schema validation to catch structural errors immediately.
+### 🛡️ Dual-Layer Validation
+We go beyond simple syntax checking.
+* **Schema Layer:** Enforces structure (e.g., Asset ID length, data types, required arrays).
+* **Semantic Layer:** Enforces business logic (e.g., flagging suspicious pricing or generic issuer names).
 
-### 🔧 Deterministic Patching & Auto-Fix
-We don't just flag errors; we fix them. Our engine uses deterministic algorithms to auto-correct violations (e.g., formatting dates, inferring missing required fields based on context).
+### 🔧 Intelligent Data Ingestion
+Stop wrestling with formatting.
+* **Smart Convert:** Automatically transforms raw key-value text pairs into valid JSON.
+* **URL Fetch:** Pulls live data from remote endpoints directly into the validator.
+* **File Import:** seamless `.json` file loading.
 
-### 🔐 Cryptographic Integrity
-Every validated asset receives a **SHA-256 trace ID**. Think of it as a fingerprint; if a single byte changes, the hash breaks, ensuring total data integrity.
+### 📊 Immutable History Ledger
+Every action is recorded. The engine maintains a local ledger of every validation attempt, complete with:
+* **Trace IDs:** Unique identifiers for every transaction.
+* **Iteration Counts:** Tracking validation cycles.
+* **Result Badges:** Clear visual indicators (Valid, Semantic Fail, Schema Fail).
 
-### 📜 Persistent Ledger & Replay
-* **Audit Trails:** Every validation attempt is logged with timestamps, violations, and corrections.
-* **Time Travel:** Use the **Undo/Redo** buttons to step through data states.
-* **Replay:** Re-verify old assets against current rules to ensure ongoing compliance.
+### 📤 Export & Audit
+Generate proof of compliance instantly. Export your entire validation history ledger as a standardized JSON file for external auditing and reporting.
 
 ---
 
@@ -42,13 +49,14 @@ Every validated asset receives a **SHA-256 trace ID**. Think of it as a fingerpr
 
 ```mermaid
 graph TD
-    A[Raw AI Output] -->|Input| B{Schema Validation}
-    B -->|Error Found| C[Deterministic Patcher]
-    C -->|Auto-Fix| B
-    B -->|Valid| D[FIBO Semantic Rules]
-    D -->|Verified| E[SHA-256 Hashing]
-    E -->|Log| F[(Immutable Ledger)]
-    F -->|Output| G[Certified Asset]
+    A[Raw Input / URL / File] -->|Ingest| B{Format Check}
+    B -->|Smart Convert| C[JSON Object]
+    C -->|Validate| D{Compliance Engine}
+    D -->|Check 1| E[Schema Rules]
+    D -->|Check 2| F[Semantic Logic]
+    E & F -->|Result| G[Validation Status]
+    G -->|Log| H[(History Ledger)]
+    H -->|Export| I[Audit Report]
 ````
 
 ## 🛠️ Installation
@@ -56,56 +64,47 @@ graph TD
 1.  **Clone the repository**
 
     ```bash
-    git clone [https://github.com/your-username/blueprint-builder.git](https://github.com/your-username/blueprint-builder.git)
-    cd blueprint-builder
+    git clone [https://github.com/your-username/blueprint-compliance-engine.git](https://github.com/your-username/blueprint-compliance-engine.git)
+    cd blueprint-compliance-engine
     ```
 
 2.  **Install dependencies**
 
     ```bash
-    pip install -r requirements.txt
+    npm install
+    # or
+    yarn install
     ```
 
 3.  **Run the application**
 
     ```bash
-    python main.py
+    npm run dev
     ```
 
 ## 💻 Usage Example
 
-Blueprint Builder is designed to integrate anywhere via CLI.
+The Engine is designed for real-time interaction.
 
-**Input (Broken AI Output):**
+**Input (Raw Text):**
 
-```json
-{
-  "asset_type": "Bond",
-  "maturity": "2025/12/01",  // Wrong format
-  "face_value": "1M"         // String instead of Float
-}
+```text
+asset_id: BOND456
+asset_type: Bond
+issuer_name: Government Corp
+price: 1000
 ```
 
-**Command:**
+**Action:**
+Click **"🔄 Convert to JSON"** then **"🔍 Validate Asset"**.
 
-```bash
-blueprint build --input bond_data.json --fix
-```
+**Output (Validation Result Panel):**
 
-**Output (Validated & Patched):**
-
-```json
-{
-  "trace_id": "a1b2c3d4...",
-  "status": "VALIDATED",
-  "data": {
-    "asset_type": "Bond",
-    "maturity": "2025-12-01T00:00:00Z",
-    "face_value": 1000000.00
-  },
-  "log": "Fixed date format; Converted currency string to float."
-}
-```
+> **⚠️ SEMANTIC FAIL**
+>
+> **Semantic Validation Failed**
+> • Issuer name appears too short or generic for regulatory compliance
+> • Insufficient documentation for regulatory standards (minimum 2 required)
 
 -----
 
