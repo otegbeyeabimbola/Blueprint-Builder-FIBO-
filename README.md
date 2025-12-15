@@ -1,4 +1,4 @@
-# 🏗️ Blueprint Compliance Engine
+# 🏗️ Blueprint Builder FIBO Compliance Engine
 
 > **Where FIBO Standards Meet Frontend Velocity.**
 
